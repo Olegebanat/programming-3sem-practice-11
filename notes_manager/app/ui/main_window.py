@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QApplication,
 )
-
 from PySide6.QtCore import Qt
 
 from app.config import (
@@ -15,8 +14,9 @@ from app.config import (
     APP_TITLE,
 )
 
-from app.ui.note_list_panel import NoteListPanel
 from app.ui.note_editor_panel import NoteEditorPanel
+from app.ui.note_table_model import NoteTableModel
+from app.ui.note_table_view import NoteTableView
 from app.ui.preferences_dialog import PreferencesDialog
 
 
@@ -40,15 +40,17 @@ class MainWindow(QMainWindow):
             )
 
         self.setWindowTitle(title)
-        self.resize(850, 520)
+        self.resize(900, 520)
 
         self.editor = NoteEditorPanel()
         self.setCentralWidget(self.editor)
 
-        self.notes_list = NoteListPanel()
+        self.table = NoteTableView()
+        self.model = NoteTableModel(self.state)
+        self.table.setModel(self.model)
 
         dock = QDockWidget("Notes", self)
-        dock.setWidget(self.notes_list)
+        dock.setWidget(self.table)
 
         self.addDockWidget(
             Qt.LeftDockWidgetArea,
@@ -59,23 +61,19 @@ class MainWindow(QMainWindow):
         self.create_menu()
         self.create_toolbar()
 
-        self.notes_list.currentRowChanged.connect(
+        self.table.clicked.connect(
             self.load_note
         )
 
-        self.notes_list.itemDoubleClicked.connect(
+        self.table.doubleClicked.connect(
             self.open_note_window
         )
 
         self.state.notes_changed.connect(
-            self.refresh
+            self.refresh_status
         )
 
-        self.state.settings_changed.connect(
-            self.refresh
-        )
-
-        self.refresh()
+        self.refresh_status()
 
     def create_actions(self):
         self.new_note_action = QAction(
@@ -160,7 +158,7 @@ class MainWindow(QMainWindow):
         )
 
         self.open_window_action.triggered.connect(
-            self.open_note_window
+            self.open_selected_note
         )
 
         self.new_window_action.triggered.connect(
@@ -185,19 +183,25 @@ class MainWindow(QMainWindow):
         note_menu.addAction(
             self.new_note_action
         )
+
         note_menu.addAction(
             self.save_action
         )
+
         note_menu.addAction(
             self.delete_action
         )
+
         note_menu.addAction(
             self.pin_action
         )
+
         note_menu.addAction(
             self.open_window_action
         )
+
         note_menu.addSeparator()
+
         note_menu.addAction(
             self.quit_action
         )
@@ -215,11 +219,10 @@ class MainWindow(QMainWindow):
         window_menu.addAction(
             self.new_window_action
         )
+
         window_menu.addAction(
             self.close_window_action
         )
-
-        self.menuBar().addMenu("Help")
 
     def create_toolbar(self):
         toolbar = QToolBar("Main")
@@ -227,11 +230,17 @@ class MainWindow(QMainWindow):
         toolbar.addAction(
             self.new_note_action
         )
+
         toolbar.addAction(
             self.save_action
         )
+
         toolbar.addAction(
             self.delete_action
+        )
+
+        toolbar.addAction(
+            self.pin_action
         )
 
         toolbar.addSeparator()
@@ -242,19 +251,28 @@ class MainWindow(QMainWindow):
 
         self.addToolBar(toolbar)
 
-    def refresh(self):
-        self.notes_list.show_notes(
-            self.state.notes,
-            self.state.preview_length
+    def selected_note(self):
+        index = self.table.currentIndex()
+
+        if not index.isValid():
+            return None
+
+        return self.model.note_at(
+            index.row()
         )
 
-        self.statusBar().showMessage(
-            f"Window: {self.number} | "
-            f"Notes: {len(self.state.notes)}"
+    def load_note(self, index):
+        note = self.model.note_at(
+            index.row()
         )
+
+        if note:
+            self.editor.setPlainText(
+                note.text
+            )
 
     def new_note(self):
-        self.notes_list.clearSelection()
+        self.table.clearSelection()
         self.editor.clear()
 
     def save_note(self):
@@ -271,54 +289,42 @@ class MainWindow(QMainWindow):
         self.state.add_note(text)
         self.editor.clear()
 
-    def load_note(self, row):
-        if row < 0 or row >= len(self.state.notes):
-            return
-
-        note = self.state.notes[row]
-
-        self.editor.setPlainText(
-            note.text
-        )
-
     def delete_note(self):
-        row = self.notes_list.currentRow()
+        note = self.selected_note()
 
-        if row < 0:
-            return
+        if note:
+            self.state.delete_note(
+                note.id
+            )
 
-        note = self.state.notes[row]
-
-        self.state.delete_note(
-            note.id
-        )
-
-        self.editor.clear()
+            self.editor.clear()
 
     def pin_note(self):
-        row = self.notes_list.currentRow()
+        note = self.selected_note()
 
-        if row < 0:
-            return
+        if note:
+            self.state.toggle_pin(
+                note.id,
+                note.pinned
+            )
 
-        note = self.state.notes[row]
+    def open_selected_note(self):
+        note = self.selected_note()
 
-        self.state.toggle_pin(
-            note.id,
-            note.pinned
+        if note:
+            self.manager.open_note_window(
+                note.id
+            )
+
+    def open_note_window(self, index):
+        note = self.model.note_at(
+            index.row()
         )
 
-    def open_note_window(self):
-        row = self.notes_list.currentRow()
-
-        if row < 0:
-            return
-
-        note = self.state.notes[row]
-
-        self.manager.open_note_window(
-            note.id
-        )
+        if note:
+            self.manager.open_note_window(
+                note.id
+            )
 
     def open_preferences(self):
         dialog = PreferencesDialog(
@@ -327,3 +333,9 @@ class MainWindow(QMainWindow):
         )
 
         dialog.exec()
+
+    def refresh_status(self):
+        self.statusBar().showMessage(
+            f"Window: {self.number} | "
+            f"Notes: {len(self.state.notes)}"
+        )
