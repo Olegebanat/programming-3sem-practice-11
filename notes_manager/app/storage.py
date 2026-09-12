@@ -31,19 +31,18 @@ class SqliteStorage:
         except sqlite3.Error as error:
             raise StorageError(str(error))
 
-    def get_notes(self):
+    def get_notes(self, pinned_first=True):
+        order = "pinned DESC, id" if pinned_first else "id"
+
         self.cursor.execute(
-            """
+            f"""
             SELECT id, text, created_at, pinned
             FROM notes
-            ORDER BY pinned DESC, id
+            ORDER BY {order}
             """
         )
 
-        return [
-            Note(*row)
-            for row in self.cursor.fetchall()
-        ]
+        return [Note(*row) for row in self.cursor.fetchall()]
 
     def add_note(self, text):
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -58,12 +57,25 @@ class SqliteStorage:
 
         self.connection.commit()
 
+    def update_note(self, note_id, text):
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        self.cursor.execute(
+            """
+            UPDATE notes
+            SET text = ?, created_at = ?
+            WHERE id = ?
+            """,
+            (text, created_at, note_id)
+        )
+
+        self.connection.commit()
+
     def delete_note(self, note_id):
         self.cursor.execute(
             "DELETE FROM notes WHERE id = ?",
             (note_id,)
         )
-
         self.connection.commit()
 
     def toggle_pin(self, note_id, pinned):
@@ -71,7 +83,6 @@ class SqliteStorage:
             "UPDATE notes SET pinned = ? WHERE id = ?",
             (0 if pinned else 1, note_id)
         )
-
         self.connection.commit()
 
     def close(self):
