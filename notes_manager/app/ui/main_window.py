@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.state = state
+        self.settings = manager.settings
         self.manager = manager
         self.number = number
 
@@ -41,10 +42,23 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(title)
         self.resize(900, 520)
-
         self.editor = NoteEditorPanel()
+
+        font = self.editor.font()
+        font.setPointSize(
+            self.settings.font_size()
+        )
+        self.editor.setFont(font)
+
         self.setCentralWidget(self.editor)
 
+        self.table = NoteTableView()
+        self.model = NoteTableModel(self.state)
+        self.table.setModel(self.model)
+
+        self.table = NoteTableView()
+        self.model = NoteTableModel(self.state)
+        self.table.setModel(self.model)
         self.table = NoteTableView()
         self.model = NoteTableModel(self.state)
         self.table.setModel(self.model)
@@ -326,16 +340,28 @@ class MainWindow(QMainWindow):
                 note.id
             )
 
+       
+
     def open_preferences(self):
         dialog = PreferencesDialog(
-            self.state,
+            self.settings,
             self
         )
 
-        dialog.exec()
+        if dialog.exec():
+            font = self.editor.font()
+
+            font.setPointSize(
+                self.settings.font_size()
+            )
+
+            self.editor.setFont(font)
+
+            self.model.refresh()
 
     def refresh_status(self):
         self.statusBar().showMessage(
             f"Window: {self.number} | "
             f"Notes: {len(self.state.notes)}"
         )
+    

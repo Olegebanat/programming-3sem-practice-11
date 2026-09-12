@@ -2,59 +2,161 @@ from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QLabel,
-    QCheckBox,
     QSpinBox,
+    QCheckBox,
+    QComboBox,
     QDialogButtonBox,
 )
 
 
 class PreferencesDialog(QDialog):
-    def __init__(self, state, parent=None):
+    def __init__(
+        self,
+        settings,
+        parent=None
+    ):
         super().__init__(parent)
 
-        self.state = state
+        self.settings = settings
 
-        self.setWindowTitle("Preferences")
+        self.setWindowTitle(
+            "Preferences"
+        )
 
         layout = QVBoxLayout(self)
 
         layout.addWidget(
-            QLabel("Applies to every open window.")
+            QLabel("Font size:")
         )
 
-        self.pinned_first_box = QCheckBox(
-            "Show pinned notes first"
-        )
-        self.pinned_first_box.setChecked(
-            state.pinned_first
-        )
-
-        layout.addWidget(self.pinned_first_box)
-
-        layout.addWidget(QLabel("Preview length:"))
-
-        self.preview_spin = QSpinBox()
-        self.preview_spin.setRange(10, 100)
-        self.preview_spin.setValue(
-            state.preview_length
+        self.font_size = QSpinBox()
+        self.font_size.setRange(8, 32)
+        self.font_size.setValue(
+            settings.font_size()
         )
 
-        layout.addWidget(self.preview_spin)
+        layout.addWidget(
+            self.font_size
+        )
+
+        layout.addWidget(
+            QLabel("Preview length:")
+        )
+
+        self.preview_length = QSpinBox()
+        self.preview_length.setRange(
+            10,
+            200
+        )
+
+        self.preview_length.setValue(
+            settings.preview_length()
+        )
+
+        layout.addWidget(
+            self.preview_length
+        )
+
+        self.autosave = QCheckBox(
+            "Autosave"
+        )
+
+        self.autosave.setChecked(
+            settings.autosave()
+        )
+
+        layout.addWidget(
+            self.autosave
+        )
+
+        layout.addWidget(
+            QLabel("Autosave interval:")
+        )
+
+        self.autosave_interval = QSpinBox()
+        self.autosave_interval.setRange(
+            5,
+            600
+        )
+
+        self.autosave_interval.setValue(
+            settings.autosave_interval()
+        )
+
+        layout.addWidget(
+            self.autosave_interval
+        )
+
+        self.confirm_delete = QCheckBox(
+            "Confirm delete"
+        )
+
+        self.confirm_delete.setChecked(
+            settings.confirm_delete()
+        )
+
+        layout.addWidget(
+            self.confirm_delete
+        )
+
+        layout.addWidget(
+            QLabel("Log level:")
+        )
+
+        self.log_level = QComboBox()
+        self.log_level.addItems(
+            [
+                "INFO",
+                "DEBUG"
+            ]
+        )
+
+        self.log_level.setCurrentText(
+            settings.log_level()
+        )
+
+        layout.addWidget(
+            self.log_level
+        )
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok |
             QDialogButtonBox.Cancel
         )
 
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        buttons.accepted.connect(
+            self.accept
+        )
+
+        buttons.rejected.connect(
+            self.reject
+        )
 
         layout.addWidget(buttons)
 
     def accept(self):
-        self.state.set_preferences(
-            self.pinned_first_box.isChecked(),
-            self.preview_spin.value()
+        self.settings.set_font_size(
+            self.font_size.value()
+        )
+
+        self.settings.set_preview_length(
+            self.preview_length.value()
+        )
+
+        self.settings.set_autosave(
+            self.autosave.isChecked()
+        )
+
+        self.settings.set_autosave_interval(
+            self.autosave_interval.value()
+        )
+
+        self.settings.set_confirm_delete(
+            self.confirm_delete.isChecked()
+        )
+
+        self.settings.set_log_level(
+            self.log_level.currentText()
         )
 
         super().accept()

@@ -1,52 +1,105 @@
 from PySide6.QtCore import QObject, Signal
 
-from app.config import DEFAULT_PREVIEW_LENGTH
-from app.storage import SqliteStorage
+from app.storage import (
+    SqliteStorage,
+    StorageError,
+)
 
 
 class AppState(QObject):
     notes_changed = Signal()
-    settings_changed = Signal()
+    error_occurred = Signal(str)
 
     def __init__(self):
         super().__init__()
 
-        self.storage = SqliteStorage()
-
-        self.pinned_first = True
-        self.preview_length = DEFAULT_PREVIEW_LENGTH
-
         self.notes = []
-        self.refresh()
+        self.storage = None
+
+        try:
+            self.storage = SqliteStorage()
+            self.refresh()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def refresh(self):
-        self.notes = self.storage.get_notes(
-            self.pinned_first
-        )
-        self.notes_changed.emit()
+        if not self.storage:
+            return
+
+        try:
+            self.notes = self.storage.get_notes()
+            self.notes_changed.emit()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def add_note(self, text):
-        self.storage.add_note(text)
-        self.refresh()
+        if not self.storage:
+            return
+
+        try:
+            self.storage.add_note(text)
+            self.refresh()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def update_note(self, note_id, text):
-        self.storage.update_note(note_id, text)
-        self.refresh()
+        if not self.storage:
+            return
+
+        try:
+            self.storage.update_note(
+                note_id,
+                text
+            )
+
+            self.refresh()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def delete_note(self, note_id):
-        self.storage.delete_note(note_id)
-        self.refresh()
+        if not self.storage:
+            return
+
+        try:
+            self.storage.delete_note(
+                note_id
+            )
+
+            self.refresh()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def toggle_pin(self, note_id, pinned):
-        self.storage.toggle_pin(note_id, pinned)
-        self.refresh()
+        if not self.storage:
+            return
 
-    def set_preferences(self, pinned_first, preview_length):
-        self.pinned_first = pinned_first
-        self.preview_length = preview_length
+        try:
+            self.storage.toggle_pin(
+                note_id,
+                pinned
+            )
 
-        self.settings_changed.emit()
-        self.refresh()
+            self.refresh()
+
+        except StorageError as error:
+            self.error_occurred.emit(
+                str(error)
+            )
 
     def find_note(self, note_id):
         for note in self.notes:

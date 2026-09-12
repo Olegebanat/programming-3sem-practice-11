@@ -1,3 +1,4 @@
+from app.settings import AppSettings
 from app.config import CASCADE_STEP
 from app.ui.main_window import MainWindow
 from app.ui.note_window import NoteWindow
@@ -6,6 +7,7 @@ from app.ui.note_window import NoteWindow
 class WindowManager:
     def __init__(self, state):
         self.state = state
+        self.settings = AppSettings()
 
         self.main_windows = []
         self.note_windows = {}
